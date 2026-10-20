@@ -55,7 +55,7 @@ def evaluate(judge: bool) -> None:
         await engine.dispose()
         text = evals.report(ret, gen, k)
         path = ROOT / "evals" / f"{settings.company}.md"
-        path.write_text(text, encoding="utf-8")
+        path.write_text(text, encoding="utf-8", newline="\n")
         print(text, f"\nОтчёт: {path}", sep="")
 
     asyncio.run(go())

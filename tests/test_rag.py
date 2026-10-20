@@ -73,12 +73,12 @@ async def test_hybrid_finds_exact_codes_and_meaning():
 
 
 async def test_answer_renumbers_citations(llm):
-    llm.script = ["Тариф «Турбо» стоит 790 ₽ [5][5], роутер — за 1 ₽ [2]."]
+    llm.script = ["Тариф «Турбо» стоит 790 ₽ [5][5], 500 Мбит/с [5], [5], роутер — за 1 ₽ [2]."]
     async with Session() as s:
         a = await answer(s, "Сколько стоит Турбо?")
     assert a.answered
-    # Ссылки перенумерованы по порядку источников под ответом, дубли [5][5] схлопнуты
-    assert a.text.count("[1]") == 1 and ("[2]" in a.text) == (len(a.sources) == 2)
+    # Ссылки перенумерованы по порядку источников под ответом, дубли «[5][5]» и «[5], [5]» схлопнуты
+    assert a.text.count("[1]") == 2 and ("[2]" in a.text) == (len(a.sources) == 2)
     assert a.sources[0]["title"] == a.hits[4].title
 
 

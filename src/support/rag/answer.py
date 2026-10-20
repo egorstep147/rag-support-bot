@@ -103,5 +103,5 @@ async def answer(
         return f"[{number[h.uri]}]"
 
     text = re.sub(r"\[(\d+)\]", renumber, text)
-    text = re.sub(r"(\[\d+\])(?:\1)+", r"\1", text)  # «[1][1]» → «[1]»
+    text = re.sub(r"(\[\d+\])(?:[,\s]*\1)+", r"\1", text)  # «[1][1]», «[1], [1]» → «[1]»
     return Answer(text, True, sources, hits, q, usage)
