@@ -76,6 +76,10 @@ class FakeSession(BaseSession):
             return True
         if method.__class__.__name__ == "CreateInvoiceLink":
             return "https://t.me/$invoice"
+        if method.__class__.__name__ == "CreateForumTopic":
+            from aiogram.types import ForumTopic
+
+            return ForumTopic(message_thread_id=next(self.ids), name=method.name, icon_color=0)
         return True
 
     async def close(self):

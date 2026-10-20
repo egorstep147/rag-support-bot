@@ -36,7 +36,7 @@ class Document(Base):
     content_hash: Mapped[str]  # sha256 текста: не изменился — не пересчитываем эмбеддинги
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
     source: Mapped[Source] = relationship(back_populates="documents", lazy="joined")
-    chunks: Mapped[list["Chunk"]] = relationship(cascade="all, delete-orphan")
+    chunks: Mapped[list["Chunk"]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
 class Chunk(Base):
@@ -64,7 +64,7 @@ class Chunk(Base):
             persisted=True,
         ),
     )
-    document: Mapped[Document] = relationship(lazy="joined")
+    document: Mapped[Document] = relationship(back_populates="chunks", lazy="joined")
 
 
 class Conversation(Base):

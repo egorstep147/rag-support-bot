@@ -54,7 +54,9 @@ async def test_sync_is_incremental():
 async def test_knowledge_base_loaded():
     async with Session() as s:
         docs = await s.scalar(select(func.count()).select_from(Document))
-        faq = await s.scalar(select(func.count()).select_from(Document).where(Document.uri.like("faq:%")))
+        faq = await s.scalar(
+            select(func.count()).select_from(Document).join(Source).where(Source.name == "Частые вопросы")
+        )
     assert docs >= 5 + 8 and faq == 8
 
 
