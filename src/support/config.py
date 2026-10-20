@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     embed_dim: int = 768
     stt_provider: Literal["gemini", "openai"] = "gemini"
     gemini_api_key: SecretStr = SecretStr("")
+    gemini_bind: str = ""  # «::» — к Gemini только по IPv6 (если Google режет регион по IPv4 сервера)
     anthropic_api_key: SecretStr = SecretStr("")
     openai_api_key: SecretStr = SecretStr("")
     openai_base_url: str = ""

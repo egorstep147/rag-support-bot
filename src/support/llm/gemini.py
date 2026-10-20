@@ -1,9 +1,11 @@
 import uuid
 from collections.abc import AsyncIterator
 
+import httpx
 from google import genai
 from google.genai import types
 
+from support.config import settings
 from support.llm.base import LLM, Attachment, Embedder, Message, Reply, ToolCall, ToolSpec, Usage
 
 
@@ -32,9 +34,20 @@ def _contents(messages: list[Message]) -> list[types.Content]:
     return out
 
 
+def _client(api_key: str) -> genai.Client:
+    """GEMINI_BIND — с какого адреса ходить к Gemini. Google решает «регион» по IP: на нашем VPS
+    API пускает только с IPv6, а без привязки клиент выбирает IPv4 или IPv6 как придётся."""
+    if not settings.gemini_bind:
+        return genai.Client(api_key=api_key)
+    transport = httpx.AsyncHTTPTransport(local_address=settings.gemini_bind)
+    return genai.Client(
+        api_key=api_key, http_options=types.HttpOptions(httpx_async_client=httpx.AsyncClient(transport=transport))
+    )
+
+
 class GeminiLLM(LLM):
     def __init__(self, api_key: str):
-        self.client = genai.Client(api_key=api_key)
+        self.client = _client(api_key)
 
     async def _stream(
         self, *, model: str, system: str, messages: list[Message], tools: list[ToolSpec]
@@ -92,7 +105,7 @@ class GeminiLLM(LLM):
 
 class GeminiEmbedder(Embedder):
     def __init__(self, api_key: str, model: str, dim: int):
-        self.client, self.model, self.dim = genai.Client(api_key=api_key), model, dim
+        self.client, self.model, self.dim = _client(api_key), model, dim
 
     async def embed(self, texts: list[str], *, query: bool = False) -> list[list[float]]:
         r = await self.client.aio.models.embed_content(

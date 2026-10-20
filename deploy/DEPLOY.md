@@ -29,6 +29,9 @@ WEBHOOK_URL=https://support.130-17-30-251.sslip.io:8443
 WEBHOOK_SECRET=...
 ```
 
+Если Gemini отвечает «User location is not supported»: Google решает регион по IP сервера. Проверьте IPv4 и IPv6
+(`curl -4`/`curl -6` к `generativelanguage.googleapis.com`) и, если пускает только IPv6, добавьте `GEMINI_BIND=::`.
+
 ```sh
 cp deploy/support@.service /etc/systemd/system/ && systemctl daemon-reload
 systemctl enable --now support@provider          # миграции и синхронизация знаний — в ExecStartPre
