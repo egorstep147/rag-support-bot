@@ -175,3 +175,17 @@ async def test_admin_upload_stats_gaps(tg, llm, monkeypatch):
     assert "Диалогов" in sent(s, 1)[0].text
     s = await feed(tg, message=msg(502, 502, text="/stats"))  # не админ — это вопрос боту, а не команда
     assert not any("Диалогов" in m.text for m in sent(s))
+
+
+async def test_model_failure_gives_polite_reply(client, llm, monkeypatch):
+    """Лимит/сбой модели — посетитель получает понятный ответ, а не 500."""
+    from support.llm import LLMError
+    from support.rag import answer as answer_mod
+
+    async def boom(*a, **kw):
+        raise LLMError("429 quota")
+
+    monkeypatch.setattr(answer_mod, "search", boom)
+    token = (await client.post("/api/web/session", json={})).json()["token"]
+    r = await client.post("/api/web/message", json={"text": "Сколько стоит Турбо?"}, headers={"X-Session": token})
+    assert r.status_code == 200 and "перегружен" in r.json()["message"]["html"]

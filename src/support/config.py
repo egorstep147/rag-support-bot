@@ -22,8 +22,9 @@ class Settings(BaseSettings):
 
     # --- Модели (как в ai-assistant-bot) ---
     llm_provider: Literal["gemini", "anthropic", "openai"] = "gemini"
-    model_fast: str = "gemini-flash-latest"  # переписывание вопроса, судья в evals
-    model_smart: str = "gemini-flash-latest"  # ответ клиенту
+    # lite: на бесплатном тарифе у gemini-flash-latest всего 20 запросов в день на проект
+    model_fast: str = "gemini-flash-lite-latest"  # переписывание вопроса, судья в evals
+    model_smart: str = "gemini-flash-lite-latest"  # ответ клиенту
     embed_provider: Literal["gemini", "openai"] = "gemini"
     embed_model: str = "gemini-embedding-001"
     # Длина вектора. Задаётся до первой миграции: у Gemini — любая до 3072 (берём 768),

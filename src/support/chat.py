@@ -16,10 +16,11 @@ from support.db import AsyncSession, Session
 from support.db.models import Conversation
 from support.db.models import Message as Row
 from support.llm import Message
-from support.rag.answer import answer
+from support.rag.answer import Answer, answer
 
 log = logging.getLogger(__name__)
 HISTORY = 8  # реплик диалога для переписывания вопроса и контекста ответа
+BUSY = "Сейчас не получается ответить — сервис перегружен. Попробуйте чуть позже или позовите оператора."
 
 
 @dataclass
@@ -79,8 +80,12 @@ async def on_user_message(bot: Bot, conv_id: int, text: str) -> Reply | None:
     if conv.mode == "operator":
         await to_operator(bot, conv, f"👤 {html.escape(text)}")
         return None
-    async with Session() as s:
-        a = await answer(s, text, past)
+    try:
+        async with Session() as s:
+            a = await answer(s, text, past)
+    except Exception:  # лимит или сбой модели/эмбеддингов: клиент получает понятный ответ, а не ошибку
+        log.exception("Диалог %s: модель недоступна", conv_id)
+        a = Answer(BUSY, False)
     async with Session() as s, s.begin():
         row = Row(
             conversation_id=conv_id,
