@@ -88,8 +88,10 @@ class OpenAILLM(LLM):
 class OpenAIEmbedder(Embedder):
     def __init__(self, api_key: str, model: str, dim: int, base_url: str = ""):
         self.client = openai.AsyncOpenAI(api_key=api_key or "none", base_url=base_url or None)
-        self.model, self.dim = model, dim
+        self.model, self.dim, self.base_url = model, dim, base_url
 
     async def embed(self, texts: list[str], *, query: bool = False) -> list[list[float]]:
-        r = await self.client.embeddings.create(model=self.model, input=texts, dimensions=self.dim)
+        # dimensions понимает только OpenAI; Ollama и другие совместимые API отдают вектор своей длины
+        extra = {"dimensions": self.dim} if not self.base_url else {}
+        r = await self.client.embeddings.create(model=self.model, input=texts, **extra)
         return [d.embedding for d in r.data]

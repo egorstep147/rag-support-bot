@@ -7,7 +7,9 @@ from sqlalchemy import BigInteger, Computed, DateTime, ForeignKey, Index, Text, 
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-EMBED_DIM = 768
+from support.config import settings  # noqa: E402
+
+EMBED_DIM = settings.embed_dim
 
 
 class Base(DeclarativeBase):

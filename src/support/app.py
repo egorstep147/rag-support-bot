@@ -90,6 +90,11 @@ def create_app(bot: Bot | None = None, dp: Dispatcher | None = None) -> FastAPI:
         ancestors = " ".join(sorted(settings.widget_origins)) or "*"
         return FileResponse(WEB / "chat.html", headers={"Content-Security-Policy": f"frame-ancestors {ancestors}"})
 
+    @app.get("/demo", include_in_schema=False)
+    async def demo() -> FileResponse:
+        """Пример сайта компании с подключённым виджетом — показать заказчику, как это выглядит."""
+        return FileResponse(WEB / "demo.html")
+
     @app.post(WEBHOOK_PATH, include_in_schema=False)
     async def webhook(request: Request, x_telegram_bot_api_secret_token: str = Header("")) -> dict:
         if x_telegram_bot_api_secret_token != settings.webhook_secret.get_secret_value():

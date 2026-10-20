@@ -9,6 +9,8 @@ from typing import Sequence, Union
 
 from alembic import op
 import pgvector.sqlalchemy  # noqa: F401 — тип Vector в миграциях
+
+from support.config import settings  # длина вектора из настроек (EMBED_DIM)
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
@@ -78,7 +80,7 @@ def upgrade() -> None:
     sa.Column('idx', sa.Integer(), nullable=False),
     sa.Column('heading', sa.Text(), nullable=False),
     sa.Column('text', sa.Text(), nullable=False),
-    sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=768), nullable=False),
+    sa.Column('embedding', pgvector.sqlalchemy.vector.VECTOR(dim=settings.embed_dim), nullable=False),
     sa.Column('tsv', postgresql.TSVECTOR(), sa.Computed("setweight(to_tsvector('russian', coalesce(heading, '')), 'A') || to_tsvector('russian', text)", persisted=True), nullable=False),
     sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')

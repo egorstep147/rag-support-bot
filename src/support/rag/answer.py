@@ -14,6 +14,11 @@ NO_ANSWER = "НЕТ_ОТВЕТА"
 FALLBACK = "К сожалению, точного ответа в нашей базе знаний нет. Позвать оператора? Он ответит в рабочее время."
 
 
+def is_no_answer(text: str) -> bool:
+    r"""Модель может написать «НЕТ\_ОТВЕТА» (Markdown-экранирование), «**НЕТ_ОТВЕТА**» или «нет ответа.»"""
+    return re.sub(r"[\\*_`\s.]", "", text).upper().startswith("НЕТОТВЕТА")
+
+
 @dataclass
 class Answer:
     text: str
@@ -80,7 +85,7 @@ async def answer(
     )
     usage += reply.usage
     text = reply.text.strip()
-    if not text or text.startswith(NO_ANSWER):
+    if not text or is_no_answer(text):
         return Answer(FALLBACK, False, hits=hits, question=q, usage=usage)
     # Перенумеровываем ссылки: [5] во фрагментах → [1] в списке источников под ответом.
     # Несколько кусков одного документа — один источник

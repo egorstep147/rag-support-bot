@@ -1,0 +1,21 @@
+# Один экземпляр на компанию: support@provider читает /home/support/envs/provider.env
+[Unit]
+Description=AI support %i
+After=network-online.target postgresql.service
+Wants=network-online.target postgresql.service
+
+[Service]
+User=support
+WorkingDirectory=/home/support/rag-support-bot
+EnvironmentFile=/home/support/envs/%i.env
+ExecStartPre=/home/support/rag-support-bot/.venv/bin/support migrate
+ExecStartPre=/home/support/rag-support-bot/.venv/bin/support sync
+ExecStart=/home/support/rag-support-bot/.venv/bin/support run
+Restart=always
+RestartSec=5
+TimeoutStartSec=600
+Environment=PYTHONUNBUFFERED=1
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

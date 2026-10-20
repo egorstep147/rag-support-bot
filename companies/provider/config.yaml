@@ -10,6 +10,8 @@ contacts: "+7 4152 00-00-00, support@volna.example"
 widget_title: Поддержка «Волны»
 accent: "#0077cc"
 top_k: 6
+# По evals на этой базе поиск по словам только мешал (hit@6: 100% без него, 89% с весом 0.5)
+fts_weight: 0.0
 sources:
   - {kind: files, name: База знаний, path: knowledge}
   - {kind: faq, name: Частые вопросы, path: faq.yaml}

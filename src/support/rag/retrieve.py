@@ -9,6 +9,7 @@ from typing import Literal
 
 from sqlalchemy import func, select
 
+from support.company import company
 from support.db import AsyncSession
 from support.db.models import Chunk
 from support.llm import get_embedder
@@ -56,15 +57,20 @@ async def _fts(s: AsyncSession, query: str, limit: int) -> list[tuple[Chunk, flo
     return [(c, float(r)) for c, r in rows.unique()]
 
 
-async def search(s: AsyncSession, query: str, k: int = 6, mode: Mode = "hybrid") -> list[Hit]:
+async def search(
+    s: AsyncSession, query: str, k: int = 6, mode: Mode = "hybrid", fts_weight: float | None = None
+) -> list[Hit]:
     if mode == "vector":
         return [_hit(c, sc) for c, sc in await _vector(s, query, k)]
     if mode == "fts":
         return [_hit(c, sc) for c, sc in await _fts(s, query, k)]
+    # Взвешенный RRF: вес поиска по словам подбирается по evals (company.fts_weight).
+    # Частые слова («интернет», «тариф») есть почти везде — с весом 1 они вытесняли нужные куски
+    w = company().fts_weight if fts_weight is None else fts_weight
     fused: dict[int, tuple[Chunk, float]] = {}
-    for results in (await _vector(s, query, CANDIDATES), await _fts(s, query, CANDIDATES)):
+    for weight, results in ((1.0, await _vector(s, query, CANDIDATES)), (w, await _fts(s, query, CANDIDATES))):
         for rank, (c, _) in enumerate(results):
             prev = fused.get(c.id, (c, 0.0))[1]
-            fused[c.id] = (c, prev + 1 / (RRF_K + rank + 1))
+            fused[c.id] = (c, prev + weight / (RRF_K + rank + 1))
     best = sorted(fused.values(), key=lambda x: x[1], reverse=True)[:k]
     return [_hit(c, sc) for c, sc in best]

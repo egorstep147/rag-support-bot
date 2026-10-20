@@ -100,3 +100,11 @@ async def test_eval_retrieval_report():
     # Эмбеддинги в тестах поддельные (мешок слов), поэтому проверяем только, что всё считается;
     # настоящие цифры — в evals/<компания>.md с реальной моделью
     assert res["hybrid"]["hit@6"] >= 0.8 and 0 < res["hybrid"]["mrr"] <= 1
+
+
+def test_no_answer_marker_variants():
+    from support.rag.answer import is_no_answer
+
+    for text in ["НЕТ_ОТВЕТА", r"НЕТ\_ОТВЕТА", "**НЕТ_ОТВЕТА**", "нет ответа."]:
+        assert is_no_answer(text), text
+    assert not is_no_answer("Нет, ответа на этот вопрос в тарифах нет — подключение бесплатно [1]")

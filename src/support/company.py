@@ -32,6 +32,7 @@ class Company(BaseModel):
     sources: list[SourceSpec]
     top_k: int = 6  # сколько кусков базы знаний давать модели
     min_score: float = 0.0  # отсечка по похожести (0 — без отсечки)
+    fts_weight: float = 0.3  # вес поиска по словам в гибриде (вектор — 1.0); подбирается по `support eval`
     widget_title: str = "Поддержка"
     accent: str = "#2481cc"
 

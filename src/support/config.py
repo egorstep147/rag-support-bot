@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     model_smart: str = "gemini-flash-latest"  # ответ клиенту
     embed_provider: Literal["gemini", "openai"] = "gemini"
     embed_model: str = "gemini-embedding-001"
+    # Длина вектора. Задаётся до первой миграции: у Gemini — любая до 3072 (берём 768),
+    # у bge-m3 в Ollama — 1024. Смена потом — новая миграция и пересчёт всех эмбеддингов
+    embed_dim: int = 768
     stt_provider: Literal["gemini", "openai"] = "gemini"
     gemini_api_key: SecretStr = SecretStr("")
     anthropic_api_key: SecretStr = SecretStr("")
