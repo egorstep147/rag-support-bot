@@ -1,0 +1,18 @@
+# Компания и её база знаний. Источники синхронизирует `support sync`
+name: Интернет-провайдер «Волна»
+product: Домашний интернет и ТВ в Петропавловске-Камчатском и Елизово.
+tone: дружелюбно, кратко, на «вы», без канцелярита
+welcome: |
+  Здравствуйте! Я помощник «Волны» 🌊
+  Спросите про тарифы, оплату, подключение или неполадки — отвечу сразу. Если не справлюсь, позову оператора.
+hours: ежедневно 9:00–21:00 (камчатское время)
+contacts: "+7 4152 00-00-00, support@volna.example"
+widget_title: Поддержка «Волны»
+accent: "#0077cc"
+top_k: 6
+sources:
+  - {kind: files, name: База знаний, path: knowledge}
+  - {kind: faq, name: Частые вопросы, path: faq.yaml}
+  # Свой сайт:          - {kind: site, name: Сайт, url: "https://example.com/sitemap.xml", max_pages: 100}
+  # Google Документы:   - {kind: gdoc, name: Регламенты, ids: ["<id папки Drive>"]}
+  # Notion:             - {kind: notion, name: Вики, ids: ["<id страницы>"]}

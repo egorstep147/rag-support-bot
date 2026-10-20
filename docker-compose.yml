@@ -1,0 +1,36 @@
+# База (с pgvector) и Redis для разработки: docker compose up -d
+# Бот целиком:                         docker compose --profile app up -d --build
+services:
+  postgres:
+    image: pgvector/pgvector:pg18  # PostgreSQL + расширение для векторов
+    environment:
+      POSTGRES_USER: support
+      POSTGRES_DB: support
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5435:5432"  # 5435 — чтобы не мешать другим Postgres на компьютере
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "support"]
+      interval: 5s
+
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "127.0.0.1:6382:6379"
+
+  bot:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://support:${POSTGRES_PASSWORD}@postgres:5432/support
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+    restart: unless-stopped
+    profiles: [app]
+
+volumes:
+  pgdata:
