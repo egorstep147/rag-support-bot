@@ -4,10 +4,12 @@
 import html
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 
 from aiogram import Bot
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from chatgpt_md_converter import telegram_format
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from support.company import company
@@ -178,22 +180,73 @@ async def from_operator(bot: Bot, topic_id: int, text: str) -> tuple[Conversatio
         s.add(row)
         await s.flush()
     if conv.channel == "tg":
-        await bot.send_message(int(conv.external_id), f"👩‍💼 Оператор: {text}")
+        await bot.send_message(int(conv.external_id), f"👩‍💼 Оператор: {text}", reply_markup=back_kb())
     return conv, row.id
 
 
-async def close(bot: Bot, topic_id: int) -> Conversation | None:
+def back_kb() -> InlineKeyboardMarkup:
+    button = InlineKeyboardButton(text="🤖 Вернуться к боту", callback_data="bot")
+    return InlineKeyboardMarkup(inline_keyboard=[[button]])
+
+
+# Кто вернул диалог ИИ → (запись в теме операторов, сообщение клиенту)
+BACK = {
+    "client": ("🤖 Клиент вернулся к боту", "Снова отвечаю я, ИИ-помощник 🙂 Оператора можно позвать в любой момент."),
+    "operator": ("", "Оператор завершил диалог. Если будут вопросы — пишите, отвечу сразу 🙂"),
+    "timeout": (
+        "⏱ Оператор не ответил за {m} мин — клиент возвращён боту",
+        "Оператор пока не ответил, поэтому снова отвечаю я, ИИ-помощник. Оператора можно позвать ещё раз.",
+    ),
+}
+
+
+async def back_to_ai(bot: Bot, conv_id: int, reason: str) -> Conversation | None:
+    """Диалог снова у ИИ: клиент сам, оператор (/close) или оператор молчит дольше operator_timeout.
+    None — диалог и так у ИИ."""
+    topic_note, client_note = BACK[reason]
     async with Session() as s, s.begin():
-        conv = await s.scalar(select(Conversation).where(Conversation.topic_id == topic_id))
-        if conv is None:
+        conv = await s.get(Conversation, conv_id)
+        if conv is None or conv.mode != "operator":
             return None
         conv.mode = "ai"
-        s.add(Row(conversation_id=conv.id, role="system", text="Оператор завершил диалог"))
+        s.add(Row(conversation_id=conv_id, role="system", text=f"Диалог снова у ИИ: {reason}"))
+        s.add(Row(conversation_id=conv_id, role="notice", text=client_note))  # виджет покажет при опросе
     if conv.channel == "tg":
-        await bot.send_message(
-            int(conv.external_id), "Оператор завершил диалог. Если будут вопросы — пишите, отвечу сразу 🙂"
-        )
+        await bot.send_message(int(conv.external_id), client_note)
+    if topic_note and conv.topic_id:
+        await to_operator(bot, conv, topic_note.format(m=company().operator_timeout))
     return conv
+
+
+async def close(bot: Bot, topic_id: int) -> Conversation | None:
+    async with Session() as s:
+        conv_id = await s.scalar(select(Conversation.id).where(Conversation.topic_id == topic_id))
+    return await back_to_ai(bot, conv_id, "operator") if conv_id else None
+
+
+async def expire_operators(bot: Bot) -> int:
+    """Оператор молчит дольше operator_timeout минут (с передачи или своего последнего ответа) — диалог снова у ИИ,
+    чтобы клиент не остался без ответа, если оператор занят или забыл /close."""
+    minutes = company().operator_timeout
+    if not minutes:
+        return 0
+    async with Session() as s:
+        last = (
+            select(Row.conversation_id, func.max(Row.created_at).label("at"))
+            .where(Row.role.in_(("operator", "system")))
+            .group_by(Row.conversation_id)
+            .subquery()
+        )
+        ids = list(
+            await s.scalars(
+                select(Conversation.id)
+                .join(last, last.c.conversation_id == Conversation.id)
+                .where(Conversation.mode == "operator", last.c.at < func.now() - timedelta(minutes=minutes))
+            )
+        )
+    for conv_id in ids:
+        await back_to_ai(bot, conv_id, "timeout")
+    return len(ids)
 
 
 async def last_question(s: AsyncSession, conv_id: int, before_id: int | None = None) -> str:

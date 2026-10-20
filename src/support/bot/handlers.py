@@ -55,15 +55,31 @@ async def start(message: Message) -> None:
 
 @router.message(Command("operator"), F.chat.type == "private")
 async def operator_cmd(message: Message, bot: Bot) -> None:
-    await message.answer(await chat.request_operator(bot, await _conv_id(message)))
+    text = await chat.request_operator(bot, await _conv_id(message))
+    await message.answer(text, reply_markup=chat.back_kb() if chat.operators_enabled() else None)
 
 
 @router.callback_query(F.data == "operator")
 async def operator_button(callback: CallbackQuery, bot: Bot) -> None:
     async with Session() as s, s.begin():
         conv = await chat.conversation(s, "tg", str(callback.from_user.id), callback.from_user.full_name)
-    await callback.message.answer(await chat.request_operator(bot, conv.id))
+    text = await chat.request_operator(bot, conv.id)
+    await callback.message.answer(text, reply_markup=chat.back_kb() if chat.operators_enabled() else None)
     await callback.answer()
+
+
+@router.message(Command("bot"), F.chat.type == "private")
+async def bot_cmd(message: Message, bot: Bot) -> None:
+    if not await chat.back_to_ai(bot, await _conv_id(message), "client"):
+        await message.answer("Я и так на связи — спрашивайте 🙂")
+
+
+@router.callback_query(F.data == "bot")
+async def bot_button(callback: CallbackQuery, bot: Bot) -> None:
+    async with Session() as s, s.begin():
+        conv = await chat.conversation(s, "tg", str(callback.from_user.id), callback.from_user.full_name)
+    back = await chat.back_to_ai(bot, conv.id, "client")
+    await callback.answer(None if back else "Вы и так общаетесь с ИИ-помощником")
 
 
 @router.callback_query(F.data.startswith("rate:"))
@@ -131,7 +147,7 @@ def _in_topic(message: Message) -> bool:
 @router.message(Command("close"), F.func(_in_topic))
 async def close_topic(message: Message, bot: Bot) -> None:
     conv = await chat.close(bot, message.message_thread_id)
-    await message.reply("✅ Диалог возвращён боту" if conv else "Это не тема клиента")
+    await message.reply("✅ Диалог возвращён боту" if conv else "Диалог уже у бота (или это не тема клиента)")
 
 
 @router.message(F.text, F.func(_in_topic))

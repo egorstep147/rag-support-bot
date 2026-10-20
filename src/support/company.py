@@ -28,6 +28,7 @@ class Company(BaseModel):
     tone: str = "вежливо, кратко, по делу, на «вы»"
     welcome: str
     hours: str = ""  # когда работают операторы
+    operator_timeout: int = 30  # минут без ответа оператора — клиент снова у ИИ (0 — ждать /close)
     contacts: str = ""
     sources: list[SourceSpec]
     top_k: int = 6  # сколько кусков базы знаний давать модели

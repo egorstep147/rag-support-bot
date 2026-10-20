@@ -12,6 +12,7 @@ from aiogram.types import Update
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from support import chat
 from support.api.web import router as web_router
 from support.bot import COMMANDS, create_bot, create_dispatcher
 from support.company import company
@@ -38,6 +39,16 @@ async def daily_sync() -> None:
                     log.exception("Синхронизация %s не удалась", spec.name)
 
 
+async def operator_timeouts(bot: Bot) -> None:
+    while True:
+        await asyncio.sleep(60)
+        try:
+            if n := await chat.expire_operators(bot):
+                log.info("Оператор не ответил — вернули боту диалогов: %s", n)
+        except Exception:
+            log.exception("Проверка ожидания оператора не удалась")
+
+
 async def setup_telegram(bot: Bot, dp: Dispatcher) -> asyncio.Task | None:
     if not settings.webhook_url and not settings.polling:
         return None
@@ -61,7 +72,7 @@ def create_app(bot: Bot | None = None, dp: Dispatcher | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.bot = bot
-        tasks = [asyncio.create_task(daily_sync())]
+        tasks = [asyncio.create_task(daily_sync()), asyncio.create_task(operator_timeouts(bot))]
         if polling := await setup_telegram(bot, dp):
             tasks.append(polling)
         log.info("Поддержка «%s» запущена", company().name)

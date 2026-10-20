@@ -189,3 +189,45 @@ async def test_model_failure_gives_polite_reply(client, llm, monkeypatch):
     token = (await client.post("/api/web/session", json={})).json()["token"]
     r = await client.post("/api/web/message", json={"text": "Сколько стоит Турбо?"}, headers={"X-Session": token})
     assert r.status_code == 200 and "перегружен" in r.json()["message"]["html"]
+
+
+async def test_web_client_returns_to_bot(client, tg, llm):
+    bot, session, dp = tg
+    h = await new_web_session(client)
+    await client.post("/api/web/operator", headers=h)
+    assert (await client.get("/api/web/state", headers=h)).json() == {"mode": "operator"}
+    session.requests.clear()
+    assert (await client.post("/api/web/bot", headers=h)).json() == {"ok": True}
+    assert (await client.get("/api/web/state", headers=h)).json() == {"mode": "ai"}
+    assert any("Клиент вернулся к боту" in m.text for m in sent(session, GROUP))
+    roles = [m["role"] for m in (await client.get("/api/web/messages", headers=h)).json()]
+    assert roles[-1] == "notice"
+    assert (await client.post("/api/web/bot", headers=h)).json() == {"ok": False}  # уже у ИИ
+
+
+async def test_operator_timeout_returns_to_bot(client, tg, llm, monkeypatch):
+    from sqlalchemy import text
+
+    from support import chat
+    from support.company import company
+
+    bot, session, dp = tg
+    monkeypatch.setattr(company(), "operator_timeout", 30)
+    h = await new_web_session(client)
+    await client.post("/api/web/operator", headers=h)
+    assert await chat.expire_operators(bot) == 0  # только что передали — ждём
+    async with Session() as s, s.begin():  # «прошёл час»: оператор так и не ответил
+        await s.execute(text("UPDATE messages SET created_at = created_at - interval '1 hour'"))
+    session.requests.clear()
+    assert await chat.expire_operators(bot) >= 1
+    assert (await client.get("/api/web/state", headers=h)).json() == {"mode": "ai"}
+    assert any("не ответил за 30 мин" in m.text for m in sent(session, GROUP))
+
+
+async def test_telegram_back_to_bot_button(tg, llm):
+    s = await feed(tg, message=msg(555, 555, text="/operator"))
+    kb = sent(s, 555)[0].reply_markup
+    assert kb.inline_keyboard[0][0].callback_data == "bot"
+    cb = CallbackQuery(id="b", from_user=user(555), chat_instance="y", data="bot", message=msg(555, 555, text="…"))
+    s = await feed(tg, callback_query=cb)
+    assert any("Снова отвечаю я" in m.text for m in sent(s, 555))

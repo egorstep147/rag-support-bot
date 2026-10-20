@@ -121,6 +121,17 @@ async def operator(conv: Conv, request: Request) -> dict:
     return {"text": await chat.request_operator(_bot(request), conv.id)}
 
 
+@router.post("/bot")
+async def back_to_bot(conv: Conv, request: Request) -> dict:
+    """Клиент на сайте сам возвращается к ИИ, не дожидаясь оператора."""
+    return {"ok": bool(await chat.back_to_ai(_bot(request), conv.id, "client"))}
+
+
+@router.get("/state")
+async def state(conv: Conv) -> dict:
+    return {"mode": conv.mode}
+
+
 @router.post("/rate")
 async def rate(body: RateIn, conv: Conv) -> dict:
     if body.value == 0 or not await chat.rate(body.message_id, body.value, conv.id):

@@ -17,6 +17,7 @@
   .msg { max-width: 85%; padding: 9px 13px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
   .user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
   .assistant, .operator { align-self: flex-start; background: var(--bg2); border-bottom-left-radius: 4px; }
+  .notice { align-self: center; color: var(--hint); font-size: 13px; text-align: center; max-width: 95%; }
   .operator::before { content: '👩‍💼 Оператор'; display: block; font-size: 12px; color: var(--hint); margin-bottom: 2px; }
   .msg a { color: inherit; }
   .assistant a { color: var(--accent); }
@@ -36,11 +37,12 @@
 <header><b id="title">Поддержка</b><button id="close" aria-label="Закрыть">×</button></header>
 <div id="log"></div>
 <button class="op" id="op" hidden>🙋 Позвать оператора</button>
+<button class="op" id="back" hidden>🤖 Вернуться к боту</button>
 <div class="bar"><textarea id="input" placeholder="Напишите вопрос…" maxlength="2000"></textarea>
   <button class="send" id="send" aria-label="Отправить">➤</button></div>
 <script>
 const log = document.getElementById('log'), input = document.getElementById('input')
-let token = null, last = 0, busy = false
+let token = null, last = 0, busy = false, operators = false
 
 // Токен сессии храним в этом браузере: вернулся на сайт — видит свою переписку
 function stored(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v) } catch (e) { return null } }
@@ -81,6 +83,12 @@ function add(m) {
   log.scrollTop = log.scrollHeight
 }
 
+// Кто сейчас отвечает: ИИ или оператор — от этого зависит, какая кнопка видна
+function setMode(mode) {
+  document.getElementById('op').hidden = !operators || mode === 'operator'
+  document.getElementById('back').hidden = mode !== 'operator'
+}
+
 function note(text) { add({ role: 'assistant', html: text.replace(/</g, '&lt;') }) }
 
 async function send() {
@@ -100,22 +108,32 @@ async function send() {
 input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } })
 document.getElementById('send').onclick = send
 document.getElementById('close').onclick = () => parent.postMessage('support:close', '*')
-document.getElementById('op').onclick = async () => { try { note((await api('/operator', {})).text) } catch (e) { note('⚠️ ' + e.message) } }
+document.getElementById('op').onclick = async () => {
+  try { note((await api('/operator', {})).text); setMode((await api('/state')).mode) } catch (e) { note('⚠️ ' + e.message) }
+}
+document.getElementById('back').onclick = async () => {
+  try { await api('/bot', {}); setMode('ai'); (await api('/messages?after=' + last)).filter(m => m.role !== 'user').forEach(add) }
+  catch (e) { note('⚠️ ' + e.message) }
+}
 
 ;(async () => {
   const cfg = await (await fetch('/api/web/config')).json()
   document.title = cfg.title
   document.getElementById('title').textContent = cfg.title
   document.documentElement.style.setProperty('--accent', cfg.accent)
-  document.getElementById('op').hidden = !cfg.operators
+  operators = cfg.operators
   await ensureSession()
+  setMode((await api('/state')).mode)
   const history = await api('/messages')
   if (!history.length) note(cfg.welcome)
   history.forEach(add)
   // Ответы оператора приходят опросом раз в 4 секунды
   // (свои сообщения уже на экране — из опроса берём только ответы)
   setInterval(async () => {
-    if (!busy) (await api('/messages?after=' + last).catch(() => [])).filter(m => m.role !== 'user').forEach(add)
+    if (busy) return
+    const news = (await api('/messages?after=' + last).catch(() => [])).filter(m => m.role !== 'user')
+    news.forEach(add)
+    if (news.some(m => m.role === 'notice')) setMode((await api('/state')).mode)  // оператор не ответил — снова ИИ
   }, 4000)
 })()
 </script>

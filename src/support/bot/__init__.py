@@ -7,6 +7,7 @@ from support.config import settings
 COMMANDS = [
     BotCommand(command="start", description="Начать"),
     BotCommand(command="operator", description="Позвать оператора"),
+    BotCommand(command="bot", description="Вернуться к ИИ-помощнику"),
 ]
 
 
